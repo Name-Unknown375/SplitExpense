@@ -7,9 +7,11 @@ import {
   ExpenseData,
   BalanceData,
   TransactionData,
+  SettlementData,
 } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import AddExpense from '../components/AddExpense';
+import SettleUpModal from '../components/SettleUpModal';
 
 export default function GroupDetail() {
   const { id } = useParams<{ id: string }>();
@@ -21,11 +23,16 @@ export default function GroupDetail() {
   const [expenses, setExpenses] = useState<ExpenseData[]>([]);
   const [balances, setBalances] = useState<BalanceData[]>([]);
   const [transactions, setTransactions] = useState<TransactionData[]>([]);
+  const [settlements, setSettlements] = useState<SettlementData[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'expenses' | 'balances'>('expenses');
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [addMemberInput, setAddMemberInput] = useState('');
   const [addMemberError, setAddMemberError] = useState('');
+  const [showSettleUp, setShowSettleUp] = useState(false);
+  const [settlePrefill, setSettlePrefill] = useState<
+    { fromId: number; toId: number; amount: number } | undefined
+  >(undefined);
 
   useEffect(() => {
     loadAll();
@@ -33,21 +40,35 @@ export default function GroupDetail() {
 
   const loadAll = async () => {
     try {
-      const [groupData, expenseData, balanceData] = await Promise.all([
-        api.groups.get(groupId),
-        api.expenses.listByGroup(groupId),
-        api.groups.getBalances(groupId),
-      ]);
+      const [groupData, expenseData, balanceData, settlementData] =
+        await Promise.all([
+          api.groups.get(groupId),
+          api.expenses.listByGroup(groupId),
+          api.groups.getBalances(groupId),
+          api.settlements.listByGroup(groupId),
+        ]);
       setGroup(groupData.group);
       setMembers(groupData.members);
       setExpenses(expenseData.expenses);
       setBalances(balanceData.balances);
       setTransactions(balanceData.transactions);
+      setSettlements(settlementData.settlements);
     } catch (error) {
       console.error('Failed to load group:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const openSettleUp = (prefill?: { fromId: number; toId: number; amount: number }) => {
+    setSettlePrefill(prefill);
+    setShowSettleUp(true);
+  };
+
+  const handleSettled = async () => {
+    setShowSettleUp(false);
+    setSettlePrefill(undefined);
+    await loadAll();
   };
 
   const handleAddMember = async (e: React.FormEvent) => {
@@ -250,7 +271,15 @@ export default function GroupDetail() {
         {/* Balances tab */}
         {activeTab === 'balances' && (
           <section className="space-y-4">
-            <h2 className="text-lg font-semibold">Balances</h2>
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-semibold">Balances</h2>
+              <button
+                onClick={() => openSettleUp()}
+                className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 text-sm font-medium"
+              >
+                Settle up
+              </button>
+            </div>
 
             {/* Net balances */}
             <div className="bg-white rounded-lg shadow-sm p-6">
@@ -291,11 +320,22 @@ export default function GroupDetail() {
                 <h3 className="font-medium text-gray-900 mb-3">
                   Suggested payments to settle up
                 </h3>
+                <p className="text-xs text-gray-500 mb-3">
+                  Click a row to record that payment.
+                </p>
                 <div className="space-y-3">
                   {transactions.map((t, i) => (
-                    <div
+                    <button
                       key={i}
-                      className="flex items-center justify-between bg-gray-50 rounded-md p-3"
+                      type="button"
+                      onClick={() =>
+                        openSettleUp({
+                          fromId: t.fromId,
+                          toId: t.toId,
+                          amount: t.amount,
+                        })
+                      }
+                      className="w-full flex items-center justify-between bg-gray-50 hover:bg-gray-100 rounded-md p-3 text-left"
                     >
                       <span className="text-sm">
                         <span className="font-medium text-gray-900">{t.from}</span>
@@ -305,12 +345,58 @@ export default function GroupDetail() {
                       <span className="font-semibold text-primary-700">
                         ${t.amount.toFixed(2)}
                       </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Payment history */}
+            {settlements.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h3 className="font-medium text-gray-900 mb-3">Payment history</h3>
+                <div className="space-y-2">
+                  {settlements.map((s) => (
+                    <div
+                      key={s.id}
+                      className="flex items-start justify-between text-sm py-2 border-b border-gray-100 last:border-b-0"
+                    >
+                      <div>
+                        <span className="font-medium text-gray-900">
+                          {s.from_username}
+                        </span>
+                        <span className="text-gray-500"> paid </span>
+                        <span className="font-medium text-gray-900">
+                          {s.to_username}
+                        </span>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {new Date(s.created_at).toLocaleDateString()}
+                          {s.note ? ` · ${s.note}` : ''}
+                        </p>
+                      </div>
+                      <span className="font-semibold text-gray-900">
+                        ${parseFloat(s.amount).toFixed(2)}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
           </section>
+        )}
+
+        {showSettleUp && user && (
+          <SettleUpModal
+            groupId={groupId}
+            members={members}
+            currentUserId={user.id}
+            prefill={settlePrefill}
+            onClose={() => {
+              setShowSettleUp(false);
+              setSettlePrefill(undefined);
+            }}
+            onSettled={handleSettled}
+          />
         )}
       </main>
     </div>

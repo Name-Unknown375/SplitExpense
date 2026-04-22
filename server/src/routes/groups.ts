@@ -215,7 +215,10 @@ router.get(
         `SELECT
           u.id as user_id,
           u.username,
-          COALESCE(paid.total_paid, 0) - COALESCE(owed.total_owed, 0) AS net_balance
+          COALESCE(paid.total_paid, 0)
+            - COALESCE(owed.total_owed, 0)
+            + COALESCE(settled_out.total, 0)
+            - COALESCE(settled_in.total, 0) AS net_balance
         FROM group_members gm
         JOIN users u ON gm.user_id = u.id
         LEFT JOIN (
@@ -231,6 +234,18 @@ router.get(
           WHERE e.group_id = $1
           GROUP BY es.user_id
         ) owed ON u.id = owed.user_id
+        LEFT JOIN (
+          SELECT from_user, SUM(amount) as total
+          FROM settlements
+          WHERE group_id = $1
+          GROUP BY from_user
+        ) settled_out ON u.id = settled_out.from_user
+        LEFT JOIN (
+          SELECT to_user, SUM(amount) as total
+          FROM settlements
+          WHERE group_id = $1
+          GROUP BY to_user
+        ) settled_in ON u.id = settled_in.to_user
         WHERE gm.group_id = $1
         ORDER BY net_balance DESC`,
         [groupId]
