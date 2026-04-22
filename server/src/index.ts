@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
 import groupRoutes from './routes/groups';
 import expenseRoutes from './routes/expenses';
+import settlementRoutes from './routes/settlements';
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/expenses', expenseRoutes);
+app.use('/api/settlements', settlementRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

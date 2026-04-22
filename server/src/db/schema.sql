@@ -45,6 +45,18 @@ CREATE TABLE IF NOT EXISTS expense_splits (
   UNIQUE(expense_id, user_id)
 );
 
+-- Settlements (payments recorded between group members)
+CREATE TABLE IF NOT EXISTS settlements (
+  id SERIAL PRIMARY KEY,
+  group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  from_user INTEGER NOT NULL REFERENCES users(id),
+  to_user INTEGER NOT NULL REFERENCES users(id),
+  amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
+  note VARCHAR(500),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  CHECK (from_user <> to_user)
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
 CREATE INDEX IF NOT EXISTS idx_group_members_user ON group_members(user_id);
@@ -52,3 +64,6 @@ CREATE INDEX IF NOT EXISTS idx_expenses_group ON expenses(group_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_paid_by ON expenses(paid_by);
 CREATE INDEX IF NOT EXISTS idx_expense_splits_expense ON expense_splits(expense_id);
 CREATE INDEX IF NOT EXISTS idx_expense_splits_user ON expense_splits(user_id);
+CREATE INDEX IF NOT EXISTS idx_settlements_group ON settlements(group_id);
+CREATE INDEX IF NOT EXISTS idx_settlements_from ON settlements(from_user);
+CREATE INDEX IF NOT EXISTS idx_settlements_to ON settlements(to_user);

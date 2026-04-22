@@ -91,6 +91,26 @@ export const api = {
       return request<{ message: string }>(`/expenses/${id}`, { method: 'DELETE' });
     },
   },
+
+  settlements: {
+    create(data: {
+      groupId: number;
+      fromUserId: number;
+      toUserId: number;
+      amount: number;
+      note?: string;
+    }) {
+      return request<{ settlement: SettlementData }>('/settlements', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    listByGroup(groupId: number) {
+      return request<{ settlements: SettlementData[] }>(
+        `/settlements/group/${groupId}`
+      );
+    },
+  },
 };
 
 // Types
@@ -134,4 +154,16 @@ export interface TransactionData {
   to: string;
   toId: number;
   amount: number;
+}
+
+export interface SettlementData {
+  id: number;
+  group_id: number;
+  from_user: number;
+  from_username: string;
+  to_user: number;
+  to_username: string;
+  amount: string;
+  note: string | null;
+  created_at: string;
 }

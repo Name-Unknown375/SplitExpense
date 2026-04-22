@@ -60,6 +60,25 @@ export default function AddExpense({ groupId, members, onExpenseAdded }: Props) 
         setError('All split values must be valid non-negative numbers');
         return;
       }
+
+      const sum = splits.reduce((acc, s) => acc + s.value, 0);
+
+      if (splitType === 'exact' && Math.abs(sum - numAmount) > 0.01) {
+        setError(
+          `Exact amounts must sum to $${numAmount.toFixed(2)} (currently $${sum.toFixed(2)})`
+        );
+        return;
+      }
+
+      if (splitType === 'percentage' && Math.abs(sum - 100) > 0.01) {
+        setError(`Percentages must sum to 100 (currently ${sum.toFixed(2)})`);
+        return;
+      }
+
+      if (splitType === 'shares' && sum <= 0) {
+        setError('Total shares must be greater than 0');
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -81,6 +100,34 @@ export default function AddExpense({ groupId, members, onExpenseAdded }: Props) 
   };
 
   const numAmount = parseFloat(amount) || 0;
+
+  const splitSum = selectedMembers.reduce(
+    (acc, id) => acc + (parseFloat(splitValues[id] || '0') || 0),
+    0
+  );
+
+  let splitSummary: { text: string; ok: boolean } | null = null;
+  if (splitType === 'exact') {
+    const remaining = numAmount - splitSum;
+    const ok = Math.abs(remaining) <= 0.01;
+    splitSummary = {
+      text: `Entered: $${splitSum.toFixed(2)} / $${numAmount.toFixed(2)}${
+        ok ? '' : ` — $${remaining.toFixed(2)} remaining`
+      }`,
+      ok,
+    };
+  } else if (splitType === 'percentage') {
+    const ok = Math.abs(splitSum - 100) <= 0.01;
+    splitSummary = {
+      text: `Total: ${splitSum.toFixed(2)}% / 100%`,
+      ok,
+    };
+  } else if (splitType === 'shares') {
+    splitSummary = {
+      text: `Total shares: ${splitSum}`,
+      ok: splitSum > 0,
+    };
+  }
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm p-6 mb-4 space-y-4">
@@ -178,6 +225,16 @@ export default function AddExpense({ groupId, members, onExpenseAdded }: Props) 
             </div>
           ))}
         </div>
+
+        {splitSummary && (
+          <p
+            className={`text-xs mt-2 ${
+              splitSummary.ok ? 'text-gray-500' : 'text-red-600'
+            }`}
+          >
+            {splitSummary.text}
+          </p>
+        )}
       </div>
 
       <button
