@@ -1,18 +1,17 @@
 import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AuthRequest } from '../types';
-import { JWT_SECRET } from '../config';
+import { AUTH_COOKIE, JWT_SECRET } from '../config';
 
 export function authenticateToken(
   req: AuthRequest,
   res: Response,
   next: NextFunction
 ): void {
-  const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  const token = req.cookies?.[AUTH_COOKIE];
 
   if (!token) {
-    res.status(401).json({ error: 'Access token required' });
+    res.status(401).json({ error: 'Not authenticated' });
     return;
   }
 
@@ -21,6 +20,6 @@ export function authenticateToken(
     req.userId = decoded.userId;
     next();
   } catch {
-    res.status(403).json({ error: 'Invalid or expired token' });
+    res.status(401).json({ error: 'Invalid or expired session' });
   }
 }

@@ -116,9 +116,16 @@ router.get(
         [groupId]
       );
 
+      const members = membersResult.rows.map((m) => ({
+        id: m.id,
+        username: m.username,
+        email: m.id === req.userId ? m.email : null,
+        joined_at: m.joined_at,
+      }));
+
       res.json({
         group: groupResult.rows[0],
-        members: membersResult.rows,
+        members,
       });
     } catch (error) {
       console.error('Get group error:', error);
@@ -163,7 +170,7 @@ router.post(
       );
 
       if (userResult.rows.length === 0) {
-        res.status(404).json({ error: 'User not found' });
+        res.status(404).json({ error: 'Unable to add that user' });
         return;
       }
 
@@ -186,7 +193,7 @@ router.post(
       );
 
       res.status(201).json({
-        member: { id: targetUser.id, username: targetUser.username, email: targetUser.email },
+        member: { id: targetUser.id, username: targetUser.username, email: null },
       });
     } catch (error) {
       console.error('Add member error:', error);

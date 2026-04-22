@@ -12,7 +12,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, username: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -22,32 +22,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      api.auth
-        .me()
-        .then((data) => setUser(data.user))
-        .catch(() => localStorage.removeItem('token'))
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+    api.auth
+      .me()
+      .then((data) => setUser(data.user))
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
   }, []);
 
   const login = async (email: string, password: string) => {
     const data = await api.auth.login({ email, password });
-    localStorage.setItem('token', data.token);
     setUser(data.user);
   };
 
   const register = async (email: string, username: string, password: string) => {
     const data = await api.auth.register({ email, username, password });
-    localStorage.setItem('token', data.token);
     setUser(data.user);
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
+  const logout = async () => {
+    try {
+      await api.auth.logout();
+    } catch {
+      // Ignore — clear client state regardless
+    }
     setUser(null);
   };
 

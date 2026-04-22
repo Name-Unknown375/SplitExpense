@@ -14,3 +14,28 @@ if (!secret) {
 }
 
 export const JWT_SECRET = secret || 'dev-secret-change-me';
+
+export const IS_PROD = process.env.NODE_ENV === 'production';
+
+export const AUTH_COOKIE = 'token';
+export const CSRF_COOKIE = 'csrf_token';
+export const CSRF_HEADER = 'x-csrf-token';
+
+export const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+export const authCookieOptions = {
+  httpOnly: true,
+  secure: IS_PROD,
+  sameSite: 'lax' as const,
+  path: '/',
+  maxAge: SESSION_MAX_AGE_MS,
+};
+
+export const csrfCookieOptions = {
+  httpOnly: false,
+  secure: IS_PROD,
+  sameSite: 'lax' as const,
+  path: '/',
+  maxAge: SESSION_MAX_AGE_MS,
+};
+

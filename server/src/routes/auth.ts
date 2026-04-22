@@ -1,22 +1,39 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
 import pool from '../db/pool';
 import { authenticateToken } from '../middleware/auth';
 import { AuthRequest } from '../types';
-import { JWT_SECRET } from '../config';
+import {
+  JWT_SECRET,
+  AUTH_COOKIE,
+  CSRF_COOKIE,
+  authCookieOptions,
+  csrfCookieOptions,
+} from '../config';
 
 const router = Router();
 const SALT_ROUNDS = 12;
+
+function issueSession(
+  res: Response,
+  user: { id: number; email: string; username: string; created_at?: Date }
+) {
+  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+  const csrf = crypto.randomBytes(32).toString('hex');
+  res.cookie(AUTH_COOKIE, token, authCookieOptions);
+  res.cookie(CSRF_COOKIE, csrf, csrfCookieOptions);
+}
 
 // POST /api/auth/register
 router.post(
   '/register',
   [
     body('email').isEmail().normalizeEmail(),
-    body('username').isLength({ min: 3, max: 100 }).trim().escape(),
-    body('password').isLength({ min: 8 }),
+    body('username').isLength({ min: 3, max: 100 }).trim(),
+    body('password').isLength({ min: 10 }),
   ],
   async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
@@ -28,7 +45,6 @@ router.post(
     const { email, username, password } = req.body;
 
     try {
-      // Check if user already exists
       const existing = await pool.query(
         'SELECT id FROM users WHERE email = $1 OR username = $2',
         [email, username]
@@ -47,11 +63,8 @@ router.post(
       );
 
       const user = result.rows[0];
-      const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
-        expiresIn: '7d',
-      });
-
-      res.status(201).json({ user, token });
+      issueSession(res, user);
+      res.status(201).json({ user });
     } catch (error) {
       console.error('Registration error:', error);
       res.status(500).json({ error: 'Internal server error' });
@@ -94,18 +107,22 @@ router.post(
         return;
       }
 
-      const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
-        expiresIn: '7d',
-      });
-
+      issueSession(res, user);
       const { password_hash, ...userWithoutPassword } = user;
-      res.json({ user: userWithoutPassword, token });
+      res.json({ user: userWithoutPassword });
     } catch (error) {
       console.error('Login error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 );
+
+// POST /api/auth/logout
+router.post('/logout', (_req: Request, res: Response): void => {
+  res.clearCookie(AUTH_COOKIE, { path: '/' });
+  res.clearCookie(CSRF_COOKIE, { path: '/' });
+  res.json({ message: 'Logged out' });
+});
 
 // GET /api/auth/me
 router.get(

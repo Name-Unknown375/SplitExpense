@@ -1,20 +1,32 @@
 const API_BASE = '/api';
 
+const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function readCsrfCookie(): string | null {
+  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 async function request<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = localStorage.getItem('token');
+  const method = (options.method || 'GET').toUpperCase();
 
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...options.headers,
+    ...(options.headers as Record<string, string> | undefined),
   };
+
+  if (MUTATING.has(method)) {
+    const csrf = readCsrfCookie();
+    if (csrf) headers['X-CSRF-Token'] = csrf;
+  }
 
   const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
     headers,
+    credentials: 'include',
   });
 
   if (!response.ok) {
@@ -29,16 +41,19 @@ async function request<T>(
 export const api = {
   auth: {
     register(data: { email: string; username: string; password: string }) {
-      return request<{ user: { id: number; email: string; username: string }; token: string }>(
+      return request<{ user: { id: number; email: string; username: string } }>(
         '/auth/register',
         { method: 'POST', body: JSON.stringify(data) }
       );
     },
     login(data: { email: string; password: string }) {
-      return request<{ user: { id: number; email: string; username: string }; token: string }>(
+      return request<{ user: { id: number; email: string; username: string } }>(
         '/auth/login',
         { method: 'POST', body: JSON.stringify(data) }
       );
+    },
+    logout() {
+      return request<{ message: string }>('/auth/logout', { method: 'POST' });
     },
     me() {
       return request<{ user: { id: number; email: string; username: string } }>('/auth/me');
@@ -126,7 +141,7 @@ export interface GroupData {
 export interface MemberData {
   id: number;
   username: string;
-  email: string;
+  email: string | null;
   joined_at?: string;
 }
 
