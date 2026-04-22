@@ -78,6 +78,11 @@ router.get(
   '/:id',
   [param('id').isInt()],
   async (req: AuthRequest, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ errors: errors.array() });
+      return;
+    }
     const groupId = parseInt(req.params.id);
 
     try {
@@ -195,6 +200,11 @@ router.get(
   '/:id/balances',
   [param('id').isInt()],
   async (req: AuthRequest, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ errors: errors.array() });
+      return;
+    }
     const groupId = parseInt(req.params.id);
 
     try {

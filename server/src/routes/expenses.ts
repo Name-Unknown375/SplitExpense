@@ -111,6 +111,11 @@ router.get(
   '/group/:groupId',
   [param('groupId').isInt()],
   async (req: AuthRequest, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ errors: errors.array() });
+      return;
+    }
     const groupId = parseInt(req.params.groupId);
 
     try {
@@ -155,6 +160,11 @@ router.delete(
   '/:id',
   [param('id').isInt()],
   async (req: AuthRequest, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ errors: errors.array() });
+      return;
+    }
     const expenseId = parseInt(req.params.id);
 
     try {

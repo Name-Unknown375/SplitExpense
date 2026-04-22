@@ -5,9 +5,9 @@ import { body, validationResult } from 'express-validator';
 import pool from '../db/pool';
 import { authenticateToken } from '../middleware/auth';
 import { AuthRequest } from '../types';
+import { JWT_SECRET } from '../config';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const SALT_ROUNDS = 12;
 
 // POST /api/auth/register
